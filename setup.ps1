@@ -8,28 +8,63 @@ if (!([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]:
 $ErrorActionPreference = "Continue"
 Clear-Host
 
-Write-Host ":: CONFIGURATION ::" -ForegroundColor Cyan
+Write-Host ":: WINDOWS SETUP SCRIPT ::" -ForegroundColor Cyan
 
-# Base repo info
 $repoBase = "https://raw.githubusercontent.com/LuckyOneDev/winsetup/main"
 $manifestUrl = "$repoBase/manifest.json"
-$profileUrl  = "$repoBase/Microsoft.PowerShell_profile.ps1"
+$profileUrl = "$repoBase/Microsoft.PowerShell_profile.ps1"
 
-Write-Host "Checking internet connection..." -NoNewline
+$logPath = "$HOME\Desktop\setup-log.txt"
+$changesMade = $false
+
+function Log {
+	param([string]$Message, [string]$Type = "INFO")
+	$timestamp = Get-Date -Format "HH:mm:ss"
+	Add-Content -Path $logPath -Value "[$timestamp] [$Type] $Message" -ErrorAction SilentlyContinue
+
+	switch ($Type) {
+		"ACTION" { Write-Host $Message -ForegroundColor Green }
+		"SKIP" { Write-Host $Message -ForegroundColor DarkGray }
+		"WARNING" { Write-Host $Message -ForegroundColor Yellow }
+		"ERROR" { Write-Host $Message -ForegroundColor Red }
+		"INFO" { Write-Host $Message -ForegroundColor Cyan }
+	}
+}
+
+Log "Fetching manifest from $manifestUrl"
 try {
-	$ping = Test-Connection -ComputerName google.com -Count 1 -Quiet -ErrorAction Stop
-	if ($ping) { Write-Host " [OK]" -ForegroundColor Green }
+	$manifest = Invoke-RestMethod -Uri $manifestUrl -ErrorAction Stop
+	Log "Manifest loaded successfully." "ACTION"
 }
 catch {
-	Write-Host " [FAIL]" -ForegroundColor Red
-	Write-Warning "No internet detected."
+	Log "Failed to retrieve manifest: $_" "ERROR"
+	Break
 }
+
+$wingetApps = $manifest.winget
+$scoopBuckets = $manifest.scoop.buckets
+$scoopApps = $manifest.scoop.apps
+
+Write-Host "`n--- LOADED CONFIGURATION ---" -ForegroundColor Yellow
+Write-Host "Repo Base:      $repoBase"
+Write-Host "Manifest URL:   $manifestUrl"
+Write-Host "Profile URL:    $profileUrl"
+Write-Host "`nWinget Apps:    $($wingetApps -join ', ')"
+Write-Host "Scoop Buckets:  $($scoopBuckets -join ', ')"
+Write-Host "Scoop Apps:     $($scoopApps -join ', ')"
+Write-Host "`nLog File:       $logPath"
+Write-Host "--------------------------------------`n"
 
 $targetPath = Read-Host "Target Data Path (Where to install tools/repos) [Default: C:\Data]"
 if ([string]::IsNullOrWhiteSpace($targetPath)) { $targetPath = "C:\Data" }
 if ($targetPath.Length -gt 3 -and $targetPath.EndsWith("\")) {
 	$targetPath = $targetPath.Substring(0, $targetPath.Length - 1)
 }
+
+$gitName = Read-Host "Git User Name (Optional - Press Enter to skip)"
+$gitEmail = Read-Host "Git Email (Optional - Press Enter to skip)"
+$runDebloat = Read-Host "Run Win11Debloat? (y/n)"
+$runMas = Read-Host "Run Massgrave Activation? (y/n)"
 
 if (!(Test-Path $targetPath)) {
 	try {
@@ -43,45 +78,7 @@ if (!(Test-Path $targetPath)) {
 	}
 }
 
-$gitName = Read-Host "Git User Name (Optional - Press Enter to skip)"
-$gitEmail = Read-Host "Git Email (Optional - Press Enter to skip)"
-$runDebloat = Read-Host "Run Win11Debloat? (y/n)"
-$runMas = Read-Host "Run Massgrave Activation? (y/n)"
-
-$logPath = "$HOME\Desktop\setup-log.txt"
-$changesMade = $false
-
-function Log {
-	param([string]$Message, [string]$Type = "INFO")
-	$timestamp = Get-Date -Format "HH:mm:ss"
-	Add-Content -Path $logPath -Value "[$timestamp] [$Type] $Message" -ErrorAction SilentlyContinue
-	
-	switch ($Type) {
-		"ACTION" { Write-Host $Message -ForegroundColor Green }
-		"SKIP" { Write-Host $Message -ForegroundColor DarkGray }
-		"WARNING" { Write-Host $Message -ForegroundColor Yellow }
-		"ERROR" { Write-Host $Message -ForegroundColor Red }
-		"INFO" { Write-Host $Message -ForegroundColor Cyan }
-	}
-}
-
-Log "Fetching manifest from $manifestUrl"
-try {
-	$rawJson = Invoke-RestMethod -Uri $manifestUrl -ErrorAction Stop
-	$manifest = $rawJson
-	Log "Manifest loaded successfully." "ACTION"
-	$wingetApps = $manifest.winget
-	$scoopBuckets = $manifest.scoop.buckets
-	$scoopApps = $manifest.scoop.apps
-}
-catch {
-	Log "Failed to retrieve manifest: $_" "ERROR"
-	Break
-}
-
 Log "Target Path: $targetPath"
-Log "Loaded $($scoopApps.Count) Scoop apps from manifest."
-Log "Starting setup..."
 
 if ($runDebloat -eq 'y') {
 	try {
@@ -94,7 +91,7 @@ if ($runDebloat -eq 'y') {
 
 if ($runMas -eq 'y') {
 	try {
-		Log "Running activation script..."
+		Log "Running Activation..."
 		Start-Process powershell -ArgumentList "-NoProfile -ExecutionPolicy Bypass -Command `"irm https://get.activated.win | iex`"" -Wait
 	}
 	catch { Log "Activation failed: $_" "ERROR" }
@@ -141,14 +138,14 @@ if (Test-Path "$env:SCOOP\shims\scoop.ps1") {
 		if (!(Get-Command git -ErrorAction SilentlyContinue)) { scoop install git | Out-Null }
 		foreach ($b in $scoopBuckets) { scoop bucket add $b | Out-Null }
 		scoop update | Out-Null
-		Log "Installing Scoop apps..."
+		Log "Installing Scoop Apps..."
 		scoop install $scoopApps
 		$changesMade = $true
 	}
 	catch { Log "Scoop package install error: $_" "ERROR" }
 }
 
-Log "Configuring language runtimes..."
+Log "Configuring languages..."
 $env:Path = [System.Environment]::GetEnvironmentVariable("Path", "Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path", "User")
 if (Get-Command nvm -ErrorAction SilentlyContinue) {
 	if ((nvm list 2>&1) -notmatch "Currently using") {
