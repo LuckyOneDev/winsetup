@@ -182,16 +182,6 @@ if (Test-Path "$env:SCOOP\shims\scoop.ps1") {
 	catch { Log "Scoop package install error: $_" "ERROR" }
 }
 
-Log "Configuring languages..."
-$env:Path = [System.Environment]::GetEnvironmentVariable("Path", "Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path", "User")
-if (Get-Command nvm -ErrorAction SilentlyContinue) {
-	if ((nvm list 2>&1) -notmatch "Currently using") {
-		Log "Installing Node LTS..."
-		nvm install lts; nvm use lts
-		$changesMade = $true
-	}
-}
-
 Log "Configuring Git..."
 if ($gitName -and $gitEmail -and (Get-Command git -ErrorAction SilentlyContinue)) {
 	git config --global user.name "$gitName"
@@ -232,6 +222,28 @@ try {
 	}
 }
 catch { Log "Failed to fetch PowerShell profile: $_" "ERROR" }
+
+# ------------------------------------------------------
+# AFTER‑INSTALL COMMANDS
+# ------------------------------------------------------
+if ($manifest.afterinstall -and $manifest.afterinstall.Count -gt 0) {
+	Log "Running after‑install commands..."
+	foreach ($cmd in $manifest.afterinstall) {
+		try {
+			Log "Executing after‑install command: $cmd"
+			Invoke-Expression $cmd
+			Log "Command completed: $cmd" "ACTION"
+			$changesMade = $true
+		}
+		catch {
+			Log "After‑install command failed: $_" "ERROR"
+			# Continue with next command
+		}
+	}
+}
+else {
+	Log "No after‑install commands defined." "INFO"
+}
 
 Write-Host "`n==========================================" -ForegroundColor Cyan
 Write-Host "Log file: $logPath"
