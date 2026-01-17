@@ -11,9 +11,9 @@ Clear-Host
 Write-Host ":: WINDOWS SETUP SCRIPT ::" -ForegroundColor Cyan
 
 # --- Constants / Repo URLs ---
-$repoBase    = "https://raw.githubusercontent.com/LuckyOneDev/winsetup/main"
+$repoBase = "https://raw.githubusercontent.com/LuckyOneDev/winsetup/main"
 $manifestUrl = "$repoBase/manifest.json"
-$profileUrl  = "$repoBase/Microsoft.PowerShell_profile.ps1"
+$profileUrl = "$repoBase/Microsoft.PowerShell_profile.ps1"
 
 $logPath = "$HOME\Desktop\setup-log.txt"
 $changesMade = $false
@@ -22,13 +22,13 @@ function Log {
 	param([string]$Message, [string]$Type = "INFO")
 	$timestamp = Get-Date -Format "HH:mm:ss"
 	Add-Content -Path $logPath -Value "[$timestamp] [$Type] $Message" -ErrorAction SilentlyContinue
-	
+
 	switch ($Type) {
 		"ACTION" { Write-Host $Message -ForegroundColor Green }
-		"SKIP"   { Write-Host $Message -ForegroundColor DarkGray }
-		"WARNING"{ Write-Host $Message -ForegroundColor Yellow }
-		"ERROR"  { Write-Host $Message -ForegroundColor Red }
-		"INFO"   { Write-Host $Message -ForegroundColor Cyan }
+		"SKIP" { Write-Host $Message -ForegroundColor DarkGray }
+		"WARNING" { Write-Host $Message -ForegroundColor Yellow }
+		"ERROR" { Write-Host $Message -ForegroundColor Red }
+		"INFO" { Write-Host $Message -ForegroundColor Cyan }
 	}
 }
 
@@ -57,10 +57,14 @@ if ($targetPath.Length -gt 3 -and $targetPath.EndsWith("\")) {
 
 $gitName = Read-Host "Git User Name (Optional - Press Enter to skip)"
 $gitEmail = Read-Host "Git Email (Optional - Press Enter to skip)"
-$runDebloat = Read-Host "Run Win11Debloat? (y/n)"
-$runMas = Read-Host "Run Massgrave Activation? (y/n)"
 
-# --- Display Summarized Parameters ---
+$runWin11Debloat = Read-Host "Run Win11Debloat script? (y/n)"
+if ($runWin11Debloat.ToLower() -ne 'y') { $runWin11Debloat = 'n' }
+
+$runMassgrave = Read-Host "Run Massgrave Activation script? (y/n)"
+if ($runMassgrave.ToLower() -ne 'y') { $runMassgrave = 'n' }
+
+# --- Display Summary Before Execution ---
 Clear-Host
 Write-Host "`n================= SETUP SUMMARY =================" -ForegroundColor Yellow
 Write-Host ("Repository:".PadRight(24) + "$repoBase")
@@ -71,8 +75,8 @@ Write-Host ""
 Write-Host ("Target Path:".PadRight(24) + "$targetPath")
 Write-Host ("Git Name:".PadRight(24) + "$gitName")
 Write-Host ("Git Email:".PadRight(24) + "$gitEmail")
-Write-Host ("Run Debloat:".PadRight(24) + "$runDebloat")
-Write-Host ("Run Activation:".PadRight(24) + "$runMas")
+Write-Host ("Run Win11Debloat:".PadRight(24) + "$runWin11Debloat")
+Write-Host ("Run Massgrave Activation:".PadRight(24) + "$runMassgrave")
 Write-Host ""
 Write-Host "--- Manifest Data ---" -ForegroundColor Cyan
 Write-Host ("Winget Apps:".PadRight(24) + ($wingetApps -join ', '))
@@ -86,8 +90,7 @@ if ($confirmation -ne 'y') {
 	exit
 }
 
-# --- Execution begins after confirmation ---
-
+# --- Begin Executing ---
 if (!(Test-Path $targetPath)) {
 	try {
 		New-Item -ItemType Directory -Path $targetPath -Force | Out-Null
@@ -102,21 +105,21 @@ if (!(Test-Path $targetPath)) {
 Log "Target Path: $targetPath"
 Log "Starting setup..."
 
-if ($runDebloat -eq 'y') {
+if ($runWin11Debloat -eq 'y') {
 	try {
-		Log "Running Windows Debloat..."
+		Log "Running Win11Debloat..."
 		& ([scriptblock]::Create((Invoke-RestMethod "https://debloat.raphi.re/" -ErrorAction Stop))) -RunDefaults -TaskbarAlign Left
 		$changesMade = $true
 	}
-	catch { Log "Debloat failed: $_" "ERROR" }
+	catch { Log "Win11Debloat failed: $_" "ERROR" }
 }
 
-if ($runMas -eq 'y') {
+if ($runMassgrave -eq 'y') {
 	try {
-		Log "Running Activation..."
+		Log "Running Massgrave Activation..."
 		Start-Process powershell -ArgumentList "-NoProfile -ExecutionPolicy Bypass -Command `"irm https://get.activated.win | iex`"" -Wait
 	}
-	catch { Log "Activation failed: $_" "ERROR" }
+	catch { Log "Massgrave Activation failed: $_" "ERROR" }
 }
 
 Log "Installing Winget applications..."
@@ -128,7 +131,7 @@ if (Get-Command winget -ErrorAction SilentlyContinue) {
 			}
 			else {
 				Log "Installing $app..."
-				winget install --id $app -e --source winget --accept-package-agreements --accept-source-agreements --silent 
+				winget install --id $app -e --source winget --accept-package-agreements --accept-source-agreements --silent
 				$changesMade = $true
 			}
 		}
