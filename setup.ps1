@@ -93,9 +93,11 @@ Write-Host ("Repository Base:".PadRight(24) + "$repoBase")
 Write-Host ("Log File:".PadRight(24) + "$logPath")
 Write-Host ("Target Path:".PadRight(24) + "$targetPath")
 Write-Host ""
-Write-Host "--- Hardcoded List ---" -ForegroundColor Cyan
-Write-Host "Winget Apps: " ($wingetApps.Count)
-Write-Host "Scoop Apps:  " ($scoopApps.Count)
+Write-Host "--- Winget Apps ---" -ForegroundColor Cyan
+$wingetApps | ForEach-Object { Write-Host " - $_" }
+Write-Host ""
+Write-Host "--- Scoop Apps ---" -ForegroundColor Cyan
+$scoopApps | ForEach-Object { Write-Host " - $_" }
 Write-Host "==================================================" -ForegroundColor Yellow
 
 $confirmation = Read-Host "`nProceed with setup? (y/n)"
@@ -119,19 +121,19 @@ Log "Starting setup..."
 
 if ($runWin11Debloat -eq 'y') {
 	try {
-		Log "Running Win11Debloat..."
-		& ([scriptblock]::Create((Invoke-RestMethod "https://debloat.raphi.re/" -ErrorAction Stop))) -RunDefaults -TaskbarAlign Left
+		Log "Launching Win11Debloat in a new window..."
+		Start-Process powershell -ArgumentList "-NoProfile -ExecutionPolicy Bypass -Command `"iwr -useb https://debloat.raphi.re/ | iex`"" -Wait
 		$changesMade = $true
 	}
-	catch { Log "Win11Debloat failed: $_" "ERROR" }
+	catch { Log "Win11Debloat failed to start: $_" "ERROR" }
 }
 
 if ($runMassgrave -eq 'y') {
 	try {
-		Log "Running Massgrave Activation..."
+		Log "Launching Massgrave Activation in a new window..."
 		Start-Process powershell -ArgumentList "-NoProfile -ExecutionPolicy Bypass -Command `"irm https://get.activated.win | iex`"" -Wait
 	}
-	catch { Log "Massgrave Activation failed: $_" "ERROR" }
+	catch { Log "Massgrave Activation failed to start: $_" "ERROR" }
 }
 
 Log "Installing Winget applications..."
