@@ -136,6 +136,22 @@ if ($runMassgrave -eq 'y') {
 	catch { Log "Massgrave Activation failed to start: $_" "ERROR" }
 }
 
+Log "Checking for Winget..."
+if (!(Get-Command winget -ErrorAction SilentlyContinue)) {
+	Log "Winget not found. Attempting to install App Installer..."
+	try {
+		$wingetUrl = "https://github.com/microsoft/winget-cli/releases/latest/download/Microsoft.DesktopAppInstaller_8wekyb3d8bbwe.msixbundle"
+		$wingetPath = "$env:TEMP\Microsoft.DesktopAppInstaller.msixbundle"
+		Invoke-WebRequest -Uri $wingetUrl -OutFile $wingetPath
+		Add-AppxPackage -Path $wingetPath
+		Log "App Installer (Winget) installed successfully." "ACTION"
+		$changesMade = $true
+	}
+	catch {
+		Log "Failed to install Winget automatically: $_" "ERROR"
+	}
+}
+
 Log "Installing Winget applications..."
 if (Get-Command winget -ErrorAction SilentlyContinue) {
 	foreach ($app in $wingetApps) {
@@ -152,6 +168,9 @@ if (Get-Command winget -ErrorAction SilentlyContinue) {
 		}
 		catch { Log "Winget failed for $app : $_" "ERROR" }
 	}
+}
+else {
+	Log "Winget is still missing. Skipping Winget apps." "WARNING"
 }
 
 Log "Setting up Scoop package manager..."
