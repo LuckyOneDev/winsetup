@@ -166,15 +166,15 @@ if (Test-Path "$env:SCOOP\shims\scoop.ps1") {
 		Log "Installing Scoop Apps..."
 
 		foreach ($app in $scoopApps) {
-			try {
-				Log "Installing $app..."
-				scoop install $app -g -k -f | Out-Null
-				Log "$app installed." "ACTION"
+			Log "Installing $app..."
+			$installOutput = scoop install $app -g -f 2>&1
+			if ($LASTEXITCODE -eq 0) {
+				Log "$app installed successfully." "ACTION"
 				$changesMade = $true
 			}
-			catch {
-				Log "Scoop install failed for $app : $_" "ERROR"
-				# Continue to next app without breaking
+			else {
+				Log "Scoop install FAILED for $app (Exit Code: $LASTEXITCODE)" "ERROR"
+				$installOutput | ForEach-Object { Log ">> $_" "WARNING" }
 			}
 		}
 		$changesMade = $true
