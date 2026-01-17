@@ -164,7 +164,19 @@ if (Test-Path "$env:SCOOP\shims\scoop.ps1") {
 		foreach ($b in $scoopBuckets) { scoop bucket add $b | Out-Null }
 		scoop update | Out-Null
 		Log "Installing Scoop Apps..."
-		scoop install $scoopApps
+
+		foreach ($app in $scoopApps) {
+			try {
+				Log "Installing $app..."
+				scoop install $app -g -k -f | Out-Null
+				Log "$app installed." "ACTION"
+				$changesMade = $true
+			}
+			catch {
+				Log "Scoop install failed for $app : $_" "ERROR"
+				# Continue to next app without breaking
+			}
+		}
 		$changesMade = $true
 	}
 	catch { Log "Scoop package install error: $_" "ERROR" }

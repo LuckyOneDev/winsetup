@@ -7,7 +7,9 @@
 		"NextDNS.NextDNS",
 		"OpenVPNTechnologies.OpenVPNConnect",
 		"Microsoft.Teams",
-		"Valve.Steam"
+		"Valve.Steam",
+		"Microsoft.DotNet.DesktopRuntime.8",
+		"Microsoft.DotNet.DesktopRuntime.10"
 	],
 	"scoop": {
 		"buckets": [
@@ -26,8 +28,6 @@
 			"wiztree",
 			"bulk-crap-uninstaller",
 			"sharex",
-			"git",
-			"vscode",
 			"neovim",
 			"bruno",
 			"zeal",
