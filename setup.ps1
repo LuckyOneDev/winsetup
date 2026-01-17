@@ -10,10 +10,9 @@ Clear-Host
 
 Write-Host ":: WINDOWS SETUP SCRIPT ::" -ForegroundColor Cyan
 
-# --- Constants / Repo URLs ---
 $repoBase = "https://raw.githubusercontent.com/LuckyOneDev/winsetup/main"
-$manifestUrl = "$repoBase/manifest.json"
 $profileUrl = "$repoBase/Microsoft.PowerShell_profile.ps1"
+$terminalConfigUrl = "$repoBase/windows-terminal.json"
 
 $logPath = "$HOME\Desktop\setup-log.txt"
 $changesMade = $false
@@ -32,23 +31,47 @@ function Log {
 	}
 }
 
-# --- Load Manifest Early ---
-Log "Fetching manifest from $manifestUrl"
+$wingetApps = @(
+	"Microsoft.WindowsTerminal",
+	"Microsoft.PowerShell",
+	"Microsoft.PowerToys",
+	"DevToys-app.DevToys",
+	"Docker.DockerDesktop",
+	"Microsoft.DotNet.DesktopRuntime.8",
+	"Microsoft.VisualStudio.Community"
+)
 
-try {
-	$manifest = Invoke-RestMethod -Uri $manifestUrl -ErrorAction Stop
-	Log "Manifest loaded successfully." "ACTION"
-}
-catch {
-	Log "Failed to retrieve manifest: $_" "ERROR"
-	Break
-}
+$scoopBuckets = @(
+	"extras",
+	"nerd-fonts",
+	"versions"
+)
 
-$wingetApps = $manifest.winget
-$scoopBuckets = $manifest.scoop.buckets
-$scoopApps = $manifest.scoop.apps
+$scoopApps = @(
+	"curl",
+	"sudo",
+	"starship",
+	"everything",
+	"everythingtoolbar",
+	"wiztree",
+	"bulk-crap-uninstaller",
+	"sharex",
+	"neovim",
+	"nvm",
+	"pyenv",
+	"dotnet-sdk",
+	"python",
+	"ffmpeg",
+	"yt-dlp",
+	"mpv",
+	"imagemagick",
+	"JetBrainsMono-NF",
+	"ungoogled-chromium",
+	"bitwarden",
+	"discord",
+	"telegram"
+)
 
-# --- Ask for user inputs ---
 $targetPath = Read-Host "Target Data Path (Where to install tools/repos) [Default: C:\Data]"
 if ([string]::IsNullOrWhiteSpace($targetPath)) { $targetPath = "C:\Data" }
 if ($targetPath.Length -gt 3 -and $targetPath.EndsWith("\")) {
@@ -64,24 +87,15 @@ if ($runWin11Debloat.ToLower() -ne 'y') { $runWin11Debloat = 'n' }
 $runMassgrave = Read-Host "Run Massgrave Activation script? (y/n)"
 if ($runMassgrave.ToLower() -ne 'y') { $runMassgrave = 'n' }
 
-# --- Display Summary Before Execution ---
 Clear-Host
 Write-Host "`n================= SETUP SUMMARY =================" -ForegroundColor Yellow
-Write-Host ("Repository:".PadRight(24) + "$repoBase")
-Write-Host ("Manifest:".PadRight(24) + "$manifestUrl")
-Write-Host ("Profile:".PadRight(24) + "$profileUrl")
+Write-Host ("Repository Base:".PadRight(24) + "$repoBase")
 Write-Host ("Log File:".PadRight(24) + "$logPath")
-Write-Host ""
 Write-Host ("Target Path:".PadRight(24) + "$targetPath")
-Write-Host ("Git Name:".PadRight(24) + "$gitName")
-Write-Host ("Git Email:".PadRight(24) + "$gitEmail")
-Write-Host ("Run Win11Debloat:".PadRight(24) + "$runWin11Debloat")
-Write-Host ("Run Massgrave Activation:".PadRight(24) + "$runMassgrave")
 Write-Host ""
-Write-Host "--- Manifest Data ---" -ForegroundColor Cyan
-Write-Host ("Winget Apps:".PadRight(24) + ($wingetApps -join ', '))
-Write-Host ("Scoop Buckets:".PadRight(24) + ($scoopBuckets -join ', '))
-Write-Host ("Scoop Apps:".PadRight(24) + ($scoopApps -join ', '))
+Write-Host "--- Hardcoded List ---" -ForegroundColor Cyan
+Write-Host "Winget Apps: " ($wingetApps.Count)
+Write-Host "Scoop Apps:  " ($scoopApps.Count)
 Write-Host "==================================================" -ForegroundColor Yellow
 
 $confirmation = Read-Host "`nProceed with setup? (y/n)"
@@ -90,7 +104,6 @@ if ($confirmation -ne 'y') {
 	exit
 }
 
-# --- Begin Executing ---
 if (!(Test-Path $targetPath)) {
 	try {
 		New-Item -ItemType Directory -Path $targetPath -Force | Out-Null
@@ -102,7 +115,6 @@ if (!(Test-Path $targetPath)) {
 		New-Item -ItemType Directory -Path $targetPath -Force | Out-Null
 	}
 }
-Log "Target Path: $targetPath"
 Log "Starting setup..."
 
 if ($runWin11Debloat -eq 'y') {
@@ -126,7 +138,8 @@ Log "Installing Winget applications..."
 if (Get-Command winget -ErrorAction SilentlyContinue) {
 	foreach ($app in $wingetApps) {
 		try {
-			if (winget list -e --id $app 2>$null) {
+			$list = winget list -e --id $app 2>$null
+			if ($list) {
 				Log "Already installed: $app" "SKIP"
 			}
 			else {
@@ -157,27 +170,40 @@ if (!(Get-Command scoop -ErrorAction SilentlyContinue)) {
 	catch { Log "Scoop install failed: $_" "ERROR" }
 }
 
-if (Test-Path "$env:SCOOP\shims\scoop.ps1") {
+if (Test-Path "$env:SCOOP\shims") {
 	$env:Path += ";$env:SCOOP\shims"
-	try {
-		if (!(Get-Command git -ErrorAction SilentlyContinue)) { scoop install git | Out-Null }
-		foreach ($b in $scoopBuckets) { scoop bucket add $b | Out-Null }
-		scoop update | Out-Null
-		Log "Installing Scoop Apps..."
+}
 
+if (Get-Command scoop -ErrorAction SilentlyContinue) {
+	try {
+		if (!(Get-Command git -ErrorAction SilentlyContinue)) { 
+			Log "Installing Git (required for Scoop buckets)..."
+			scoop install git | Out-Null 
+		}
+
+		Log "Adding Scoop Buckets..."
+		foreach ($b in $scoopBuckets) { 
+			scoop bucket add $b | Out-Null 
+		}
+		scoop update | Out-Null
+        
+		Log "Installing Scoop Apps..."
 		foreach ($app in $scoopApps) {
 			Log "Installing $app..."
-			$installOutput = scoop install $app -g -k 2>&1
+			$installOutput = scoop install $app -g 2>&1
 			if ($LASTEXITCODE -eq 0) {
 				Log "$app installed successfully." "ACTION"
 				$changesMade = $true
 			}
 			else {
-				Log "Scoop install FAILED for $app (Exit Code: $LASTEXITCODE)" "ERROR"
-				$installOutput | ForEach-Object { Log ">> $_" "WARNING" }
+				if ($installOutput -match "already installed") {
+					Log "$app is already installed." "SKIP"
+				}
+				else {
+					Log "Scoop install FAILED for $app" "ERROR"
+				}
 			}
 		}
-		$changesMade = $true
 	}
 	catch { Log "Scoop package install error: $_" "ERROR" }
 }
@@ -205,6 +231,26 @@ if (Get-Command wsl -ErrorAction SilentlyContinue) {
 	}
 }
 
+Log "Configuring Node Version Manager (NVM)..."
+
+$env:Path = [System.Environment]::GetEnvironmentVariable("Path", "Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path", "User")
+
+if (Get-Command nvm -ErrorAction SilentlyContinue) {
+	try {
+		Log "Installing Node LTS..."
+		nvm install lts
+		nvm use lts
+		Log "Node setup complete." "ACTION"
+		$changesMade = $true
+	}
+	catch {
+		Log "Failed to configure NVM: $_" "ERROR"
+	}
+}
+else {
+	Log "NVM command not found. Skipping Node setup." "WARNING"
+}
+
 Log "Updating PowerShell profile from GitHub..."
 try {
 	$remoteProfile = Invoke-RestMethod -Uri $profileUrl -ErrorAction Stop
@@ -212,7 +258,7 @@ try {
 	$currentProfile = ""
 	if (Test-Path $PROFILE) { $currentProfile = Get-Content -Path $PROFILE -Raw -ErrorAction SilentlyContinue }
 
-	if ($currentProfile -notmatch [Regex]::Escape($remoteProfile)) {
+	if ($currentProfile -notmatch "GitHub winsetup profile") {
 		Add-Content -Path $PROFILE -Value "`n# -- GitHub winsetup profile --`n$remoteProfile`n"
 		Log "PowerShell profile updated from repository." "ACTION"
 		$changesMade = $true
@@ -223,27 +269,26 @@ try {
 }
 catch { Log "Failed to fetch PowerShell profile: $_" "ERROR" }
 
-# ------------------------------------------------------
-# AFTER‑INSTALL COMMANDS
-# ------------------------------------------------------
-if ($manifest.afterinstall -and $manifest.afterinstall.Count -gt 0) {
-	Log "Running after‑install commands..."
-	foreach ($cmd in $manifest.afterinstall) {
-		try {
-			Log "Executing after‑install command: $cmd"
-			Invoke-Expression $cmd
-			Log "Command completed: $cmd" "ACTION"
+Log "Configuring Windows Terminal..."
+try {
+	$terminalPackage = Get-ChildItem "$env:LOCALAPPDATA\Packages\Microsoft.WindowsTerminal*" -ErrorAction SilentlyContinue | Select-Object -First 1
+    
+	if ($terminalPackage) {
+		$terminalSettingsPath = "$($terminalPackage.FullName)\LocalState\settings.json"
+		Log "Downloading config from $terminalConfigUrl..."
+		$terminalJsonContent = Invoke-RestMethod -Uri $terminalConfigUrl -ErrorAction Stop
+
+		if (-not [string]::IsNullOrWhiteSpace($terminalJsonContent)) {
+			Set-Content -Path $terminalSettingsPath -Value $terminalJsonContent -Force
+			Log "Windows Terminal settings updated from repository." "ACTION"
 			$changesMade = $true
 		}
-		catch {
-			Log "After‑install command failed: $_" "ERROR"
-			# Continue with next command
-		}
+	}
+	else {
+		Log "Windows Terminal package directory not found. Skipping config." "WARNING"
 	}
 }
-else {
-	Log "No after‑install commands defined." "INFO"
-}
+catch { Log "Failed to update Windows Terminal settings: $_" "ERROR" }
 
 Write-Host "`n==========================================" -ForegroundColor Cyan
 Write-Host "Log file: $logPath"
