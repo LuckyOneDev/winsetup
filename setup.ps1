@@ -10,6 +10,11 @@ Clear-Host
 
 Write-Host ":: CONFIGURATION ::" -ForegroundColor Cyan
 
+# Base repo info
+$repoBase = "https://raw.githubusercontent.com/LuckyOneDev/winsetup/main"
+$manifestUrl = "$repoBase/manifest.json"
+$profileUrl  = "$repoBase/Microsoft.PowerShell_profile.ps1"
+
 Write-Host "Checking internet connection..." -NoNewline
 try {
 	$ping = Test-Connection -ComputerName google.com -Count 1 -Quiet -ErrorAction Stop
@@ -40,9 +45,6 @@ if (!(Test-Path $targetPath)) {
 
 $gitName = Read-Host "Git User Name (Optional - Press Enter to skip)"
 $gitEmail = Read-Host "Git Email (Optional - Press Enter to skip)"
-$manifestPathInput = Read-Host "Manifest Path (URL or Local Path) [Default: .\setup.json]"
-if ([string]::IsNullOrWhiteSpace($manifestPathInput)) { $manifestPathInput = ".\setup.json" }
-$profilePathInput = Read-Host "Custom PowerShell Profile (URL or Local Path) [Optional - Press Enter to skip]"
 $runDebloat = Read-Host "Run Win11Debloat? (y/n)"
 $runMas = Read-Host "Run Massgrave Activation? (y/n)"
 
@@ -63,33 +65,22 @@ function Log {
 	}
 }
 
-Log "Loading setup configuration..."
+Log "Fetching manifest from $manifestUrl"
 try {
-	if ($manifestPathInput -match "^https?://") {
-		Log "Loading manifest from $manifestPathInput"
-		$manifest = Invoke-RestMethod -Uri $manifestPathInput -ErrorAction Stop
-	}
-	else {
-		$resolvedPath = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($manifestPathInput)
-		Log "Reading local manifest: $resolvedPath"
-		if (Test-Path $resolvedPath) {
-			$rawJson = Get-Content -Path $resolvedPath -Raw -ErrorAction Stop
-			$manifest = $rawJson | ConvertFrom-Json
-		}
-		else { throw "File not found at $resolvedPath" }
-	}
+	$rawJson = Invoke-RestMethod -Uri $manifestUrl -ErrorAction Stop
+	$manifest = $rawJson
 	Log "Manifest loaded successfully." "ACTION"
 	$wingetApps = $manifest.winget
 	$scoopBuckets = $manifest.scoop.buckets
 	$scoopApps = $manifest.scoop.apps
 }
 catch {
-	Log "Failed to load manifest: $_" "ERROR"
+	Log "Failed to retrieve manifest: $_" "ERROR"
 	Break
 }
 
 Log "Target Path: $targetPath"
-Log "Loaded $($scoopApps.Count) Scoop apps from config."
+Log "Loaded $($scoopApps.Count) Scoop apps from manifest."
 Log "Starting setup..."
 
 if ($runDebloat -eq 'y') {
@@ -157,7 +148,7 @@ if (Test-Path "$env:SCOOP\shims\scoop.ps1") {
 	catch { Log "Scoop package install error: $_" "ERROR" }
 }
 
-Log "Configuring languages..."
+Log "Configuring language runtimes..."
 $env:Path = [System.Environment]::GetEnvironmentVariable("Path", "Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path", "User")
 if (Get-Command nvm -ErrorAction SilentlyContinue) {
 	if ((nvm list 2>&1) -notmatch "Currently using") {
@@ -190,51 +181,23 @@ if (Get-Command wsl -ErrorAction SilentlyContinue) {
 	}
 }
 
-Log "Updating PowerShell profile..."
-if (!(Test-Path $PROFILE)) { New-Item -Type File -Path $PROFILE -Force | Out-Null }
+Log "Updating PowerShell profile from GitHub..."
+try {
+	$remoteProfile = Invoke-RestMethod -Uri $profileUrl -ErrorAction Stop
+	if (!(Test-Path $PROFILE)) { New-Item -Type File -Path $PROFILE -Force | Out-Null }
+	$currentProfile = ""
+	if (Test-Path $PROFILE) { $currentProfile = Get-Content -Path $PROFILE -Raw -ErrorAction SilentlyContinue }
 
-$customProfile = ""
-if (-not [string]::IsNullOrWhiteSpace($profilePathInput)) {
-	try {
-		if ($profilePathInput -match "^https?://") {
-			Log "Fetching profile from URL: $profilePathInput"
-			$customProfile = Invoke-RestMethod -Uri $profilePathInput -ErrorAction Stop
-		}
-		else {
-			$resolvedProfilePath = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($profilePathInput)
-			Log "Reading local profile: $resolvedProfilePath"
-			if (Test-Path $resolvedProfilePath) {
-				$customProfile = Get-Content -Path $resolvedProfilePath -Raw -ErrorAction Stop
-			}
-			else { throw "Profile file not found at $resolvedProfilePath" }
-		}
-		Log "Loaded custom profile content." "ACTION"
-	}
-	catch { Log "Failed to load custom profile: $_" "ERROR" }
-}
-
-$currentProfileContent = ""
-if (Test-Path $PROFILE) {
-	$currentProfileContent = Get-Content -Path $PROFILE -Raw -ErrorAction SilentlyContinue
-}
-
-if (-not [string]::IsNullOrWhiteSpace($customProfile)) {
-	if ($currentProfileContent -notmatch [Regex]::Escape($customProfile)) {
-		Add-Content -Path $PROFILE -Value "`n# -- custom profile import --`n$customProfile`n"
-		$changesMade = $true
-		Log "Applied custom PowerShell profile."
-	}
- else {
-		Log "Custom profile already present." "SKIP"
-	}
-}
-else {
-	if ($currentProfileContent -notmatch "setup-config") {
-		Add-Content -Path $PROFILE -Value "`n# -- setup-config --`nInvoke-Expression (&starship init powershell)`nSet-PSReadLineOption -PredictionViewStyle ListView`nSet-Location `"$targetPath`""
-		Log "Added default profile settings." "ACTION"
+	if ($currentProfile -notmatch [Regex]::Escape($remoteProfile)) {
+		Add-Content -Path $PROFILE -Value "`n# -- GitHub winsetup profile --`n$remoteProfile`n"
+		Log "PowerShell profile updated from repository." "ACTION"
 		$changesMade = $true
 	}
+	else {
+		Log "Profile already up to date." "SKIP"
+	}
 }
+catch { Log "Failed to fetch PowerShell profile: $_" "ERROR" }
 
 Write-Host "`n==========================================" -ForegroundColor Cyan
 Write-Host "Log file: $logPath"
