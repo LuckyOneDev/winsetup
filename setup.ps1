@@ -38,6 +38,7 @@ $wingetApps = @(
 	"DevToys-app.DevToys",
 	"Docker.DockerDesktop",
 	"Microsoft.DotNet.DesktopRuntime.8",
+	"Microsoft.DotNet.DesktopRuntime.10",
 	"Microsoft.VisualStudio.Community"
 )
 
@@ -59,11 +60,9 @@ $scoopApps = @(
 	"neovim",
 	"nvm",
 	"pyenv",
-	"dotnet-sdk",
 	"python",
 	"ffmpeg",
 	"yt-dlp",
-	"mpv",
 	"imagemagick",
 	"JetBrainsMono-NF",
 	"ungoogled-chromium",
@@ -89,7 +88,7 @@ if ($runMassgrave.ToLower() -ne 'y') { $runMassgrave = 'n' }
 
 Clear-Host
 Write-Host "`n================= SETUP SUMMARY =================" -ForegroundColor Yellow
-Write-Host ("Repository Base:".PadRight(24) + "$repoBase")
+Write-Host ("Repository:".PadRight(24) + "$repoBase")
 Write-Host ("Log File:".PadRight(24) + "$logPath")
 Write-Host ("Target Path:".PadRight(24) + "$targetPath")
 Write-Host ""
@@ -121,7 +120,7 @@ Log "Starting setup..."
 
 if ($runWin11Debloat -eq 'y') {
 	try {
-		Log "Launching Win11Debloat in a new window..."
+		Log "Launching Win11Debloat..."
 		Start-Process powershell -ArgumentList "-NoProfile -ExecutionPolicy Bypass -Command `"iwr -useb https://debloat.raphi.re/ | iex`"" -Wait
 		$changesMade = $true
 	}
@@ -130,7 +129,7 @@ if ($runWin11Debloat -eq 'y') {
 
 if ($runMassgrave -eq 'y') {
 	try {
-		Log "Launching Massgrave Activation in a new window..."
+		Log "Launching Massgrave..."
 		Start-Process powershell -ArgumentList "-NoProfile -ExecutionPolicy Bypass -Command `"irm https://get.activated.win | iex`"" -Wait
 	}
 	catch { Log "Massgrave Activation failed to start: $_" "ERROR" }
@@ -138,39 +137,23 @@ if ($runMassgrave -eq 'y') {
 
 Log "Checking for Winget..."
 if (!(Get-Command winget -ErrorAction SilentlyContinue)) {
-	Log "Winget not found. Attempting to install App Installer..."
-	try {
-		$wingetUrl = "https://github.com/microsoft/winget-cli/releases/latest/download/Microsoft.DesktopAppInstaller_8wekyb3d8bbwe.msixbundle"
-		$wingetPath = "$env:TEMP\Microsoft.DesktopAppInstaller.msixbundle"
-		Invoke-WebRequest -Uri $wingetUrl -OutFile $wingetPath
-		Add-AppxPackage -Path $wingetPath
-		Log "App Installer (Winget) installed successfully." "ACTION"
-		$changesMade = $true
-	}
-	catch {
-		Log "Failed to install Winget automatically: $_" "ERROR"
-	}
+	Log "Winget not found. Winget apps will not be installed. Download winget from https://github.com/microsoft/winget-cli/releases/latest and run Add-AppxPackage"
+	Pause
 }
 
-Log "Installing Winget applications..."
 if (Get-Command winget -ErrorAction SilentlyContinue) {
+	Log "Installing Winget applications..."
 	foreach ($app in $wingetApps) {
 		try {
-			$list = winget list -e --id $app 2>$null
-			if ($list) {
-				Log "Already installed: $app" "SKIP"
-			}
-			else {
-				Log "Installing $app..."
-				winget install --id $app -e --source winget --accept-package-agreements --accept-source-agreements --silent
-				$changesMade = $true
-			}
+			Log "Installing $app..."
+			winget install --id $app -e --source winget --accept-package-agreements --accept-source-agreements --silent
+			$changesMade = $true
 		}
 		catch { Log "Winget failed for $app : $_" "ERROR" }
 	}
 }
 else {
-	Log "Winget is still missing. Skipping Winget apps." "WARNING"
+	Log "Winget not found. Skipping Winget apps." "WARNING"
 }
 
 Log "Setting up Scoop package manager..."
@@ -200,6 +183,8 @@ if (Get-Command scoop -ErrorAction SilentlyContinue) {
 		if (!(Get-Command git -ErrorAction SilentlyContinue)) { 
 			Log "Installing Git (required for Scoop buckets)..."
 			scoop install git | Out-Null 
+			scoop install aria2 | Out-Null 
+			scoop config aria2-warning-enabled false | Out-Null 
 		}
 
 		Log "Adding Scoop Buckets..."
