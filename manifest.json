@@ -1,0 +1,52 @@
+{
+	"winget": [
+		"Microsoft.VisualStudio.Community",
+		"Docker.DockerDesktop",
+		"Microsoft.PowerToys",
+		"DevToys-app.DevToys",
+		"NextDNS.NextDNS",
+		"OpenVPNTechnologies.OpenVPNConnect",
+		"Microsoft.Teams",
+		"Valve.Steam"
+	],
+	"scoop": {
+		"buckets": [
+			"extras",
+			"nerd-fonts",
+			"versions"
+		],
+		"apps": [
+			"curl",
+			"sudo",
+			"starship",
+			"pwsh",
+			"windows-terminal",
+			"everything",
+			"everythingtoolbar",
+			"wiztree",
+			"bulk-crap-uninstaller",
+			"sharex",
+			"git",
+			"vscode",
+			"neovim",
+			"bruno",
+			"zeal",
+			"nvm",
+			"pyenv",
+			"dotnet-sdk",
+			"python",
+			"ffmpeg",
+			"yt-dlp",
+			"mpv",
+			"imagemagick",
+			"nerd-fonts/JetBrainsMono",
+			"nerd-fonts/JetBrainsMono-NF",
+			"googlechrome",
+			"ungoogled-chromium",
+			"zen-browser",
+			"bitwarden",
+			"discord",
+			"telegram"
+		]
+	}
+}
