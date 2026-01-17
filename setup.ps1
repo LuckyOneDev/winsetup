@@ -167,7 +167,7 @@ if (Test-Path "$env:SCOOP\shims\scoop.ps1") {
 
 		foreach ($app in $scoopApps) {
 			Log "Installing $app..."
-			$installOutput = scoop install $app -g -f 2>&1
+			$installOutput = scoop install $app -g -k 2>&1
 			if ($LASTEXITCODE -eq 0) {
 				Log "$app installed successfully." "ACTION"
 				$changesMade = $true
