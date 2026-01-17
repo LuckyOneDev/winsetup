@@ -10,9 +10,10 @@ Clear-Host
 
 Write-Host ":: WINDOWS SETUP SCRIPT ::" -ForegroundColor Cyan
 
-$repoBase = "https://raw.githubusercontent.com/LuckyOneDev/winsetup/main"
+# --- Constants / Repo URLs ---
+$repoBase    = "https://raw.githubusercontent.com/LuckyOneDev/winsetup/main"
 $manifestUrl = "$repoBase/manifest.json"
-$profileUrl = "$repoBase/Microsoft.PowerShell_profile.ps1"
+$profileUrl  = "$repoBase/Microsoft.PowerShell_profile.ps1"
 
 $logPath = "$HOME\Desktop\setup-log.txt"
 $changesMade = $false
@@ -21,17 +22,19 @@ function Log {
 	param([string]$Message, [string]$Type = "INFO")
 	$timestamp = Get-Date -Format "HH:mm:ss"
 	Add-Content -Path $logPath -Value "[$timestamp] [$Type] $Message" -ErrorAction SilentlyContinue
-
+	
 	switch ($Type) {
 		"ACTION" { Write-Host $Message -ForegroundColor Green }
-		"SKIP" { Write-Host $Message -ForegroundColor DarkGray }
-		"WARNING" { Write-Host $Message -ForegroundColor Yellow }
-		"ERROR" { Write-Host $Message -ForegroundColor Red }
-		"INFO" { Write-Host $Message -ForegroundColor Cyan }
+		"SKIP"   { Write-Host $Message -ForegroundColor DarkGray }
+		"WARNING"{ Write-Host $Message -ForegroundColor Yellow }
+		"ERROR"  { Write-Host $Message -ForegroundColor Red }
+		"INFO"   { Write-Host $Message -ForegroundColor Cyan }
 	}
 }
 
+# --- Load Manifest Early ---
 Log "Fetching manifest from $manifestUrl"
+
 try {
 	$manifest = Invoke-RestMethod -Uri $manifestUrl -ErrorAction Stop
 	Log "Manifest loaded successfully." "ACTION"
@@ -45,16 +48,7 @@ $wingetApps = $manifest.winget
 $scoopBuckets = $manifest.scoop.buckets
 $scoopApps = $manifest.scoop.apps
 
-Write-Host "`n--- LOADED CONFIGURATION ---" -ForegroundColor Yellow
-Write-Host "Repo Base:      $repoBase"
-Write-Host "Manifest URL:   $manifestUrl"
-Write-Host "Profile URL:    $profileUrl"
-Write-Host "`nWinget Apps:    $($wingetApps -join ', ')"
-Write-Host "Scoop Buckets:  $($scoopBuckets -join ', ')"
-Write-Host "Scoop Apps:     $($scoopApps -join ', ')"
-Write-Host "`nLog File:       $logPath"
-Write-Host "--------------------------------------`n"
-
+# --- Ask for user inputs ---
 $targetPath = Read-Host "Target Data Path (Where to install tools/repos) [Default: C:\Data]"
 if ([string]::IsNullOrWhiteSpace($targetPath)) { $targetPath = "C:\Data" }
 if ($targetPath.Length -gt 3 -and $targetPath.EndsWith("\")) {
@@ -65,6 +59,34 @@ $gitName = Read-Host "Git User Name (Optional - Press Enter to skip)"
 $gitEmail = Read-Host "Git Email (Optional - Press Enter to skip)"
 $runDebloat = Read-Host "Run Win11Debloat? (y/n)"
 $runMas = Read-Host "Run Massgrave Activation? (y/n)"
+
+# --- Display Summarized Parameters ---
+Clear-Host
+Write-Host "`n================= SETUP SUMMARY =================" -ForegroundColor Yellow
+Write-Host ("Repository:".PadRight(24) + "$repoBase")
+Write-Host ("Manifest:".PadRight(24) + "$manifestUrl")
+Write-Host ("Profile:".PadRight(24) + "$profileUrl")
+Write-Host ("Log File:".PadRight(24) + "$logPath")
+Write-Host ""
+Write-Host ("Target Path:".PadRight(24) + "$targetPath")
+Write-Host ("Git Name:".PadRight(24) + "$gitName")
+Write-Host ("Git Email:".PadRight(24) + "$gitEmail")
+Write-Host ("Run Debloat:".PadRight(24) + "$runDebloat")
+Write-Host ("Run Activation:".PadRight(24) + "$runMas")
+Write-Host ""
+Write-Host "--- Manifest Data ---" -ForegroundColor Cyan
+Write-Host ("Winget Apps:".PadRight(24) + ($wingetApps -join ', '))
+Write-Host ("Scoop Buckets:".PadRight(24) + ($scoopBuckets -join ', '))
+Write-Host ("Scoop Apps:".PadRight(24) + ($scoopApps -join ', '))
+Write-Host "==================================================" -ForegroundColor Yellow
+
+$confirmation = Read-Host "`nProceed with setup? (y/n)"
+if ($confirmation -ne 'y') {
+	Write-Host "Setup cancelled by user." -ForegroundColor Red
+	exit
+}
+
+# --- Execution begins after confirmation ---
 
 if (!(Test-Path $targetPath)) {
 	try {
@@ -77,8 +99,8 @@ if (!(Test-Path $targetPath)) {
 		New-Item -ItemType Directory -Path $targetPath -Force | Out-Null
 	}
 }
-
 Log "Target Path: $targetPath"
+Log "Starting setup..."
 
 if ($runDebloat -eq 'y') {
 	try {
