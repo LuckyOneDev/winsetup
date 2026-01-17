@@ -49,7 +49,6 @@
 		]
 	},
 	"afterinstall": [
-		"reg import \"$dir\\install-context.reg\"",
 		"nvm install lts; nvm use lts"
 	]
 }
