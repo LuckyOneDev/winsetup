@@ -62,13 +62,15 @@ $scoopApps = @(
 	"pyenv",
 	"python",
 	"ffmpeg",
-	"yt-dlp",
 	"imagemagick",
 	"JetBrainsMono-NF",
 	"ungoogled-chromium",
 	"bitwarden",
 	"discord",
-	"telegram"
+	"telegram",
+	"eza",
+	"bat",
+	"ripgrep"
 )
 
 $targetPath = Read-Host "Target Data Path (Where to install tools/repos) [Default: C:\Data]"
@@ -219,7 +221,6 @@ if ($gitName -and $gitEmail -and (Get-Command git -ErrorAction SilentlyContinue)
 	git config --global user.name "$gitName"
 	git config --global user.email "$gitEmail"
 	git config --global core.autocrlf false
-	git config --global init.defaultBranch main
 	Log "Git configured." "ACTION"
 }
 
